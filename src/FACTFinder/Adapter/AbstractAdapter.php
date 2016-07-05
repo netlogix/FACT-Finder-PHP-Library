@@ -102,26 +102,29 @@ abstract class AbstractAdapter
 
     protected function useJsonResponseContentProcessor()
     {
-        $this->responseContentProcessor = function($string) {
+        $this->responseContentProcessor = array($this, 'jsonResponseContentProcessor');
+    }
 
-            // The second parameter turns objects into associative arrays.
-            // stdClass objects don't really have any advantages over plain
-            // arrays but miss out on some of the built-in array functions.
-            $jsonData = json_decode($string, true);
-            if (is_null($jsonData))
-                throw new \InvalidArgumentException(
-                    "json_decode() raised an error: ".json_last_error()
-                );
-            if(is_array($jsonData) && isset($jsonData['error'])) {
-                $this->error = strip_tags($jsonData['error']);
-                $this->log->error("FACT-Finder returned error: " . $this->error);
-                if(isset($jsonData['stacktrace'])) {
-                    $this->stackTrace = $jsonData['stacktrace'];
-                    $this->log->error("Stacktrace:\n" . $this->stackTrace);
-                }
+    protected function jsonResponseContentProcessor($string)
+    {
+        // The second parameter turns objects into associative arrays.
+        // stdClass objects don't really have any advantages over plain
+        // arrays but miss out on some of the built-in array functions.
+        $jsonData = json_decode($string, true);
+        if (is_null($jsonData))
+            throw new \InvalidArgumentException(
+                "json_decode() raised an error: ".json_last_error()
+            );
+        if(is_array($jsonData) && isset($jsonData['error'])) {
+            $this->error = strip_tags($jsonData['error']);
+            $this->log->error("FACT-Finder returned error: " . $this->error);
+            if(isset($jsonData['stacktrace'])) {
+                $this->stackTrace = $jsonData['stacktrace'];
+                $this->log->error("Stacktrace:\n" . $this->stackTrace);
             }
-            return $jsonData;
-        };
+        }
+        return $jsonData;
+
     }
 
     protected function useXmlResponseContentProcessor()
@@ -178,7 +181,7 @@ abstract class AbstractAdapter
             // properties
 
             if($content !== null) {
-                $this->responseContent = $this->responseContentProcessor->__invoke($content);
+                $this->responseContent = call_user_func($this->responseContentProcessor, $content);
                 if ($this->encodingConverter != null)
                 {
                     $this->responseContent = $this->encodingConverter->encodeContentForPage($this->responseContent);
